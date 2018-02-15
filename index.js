@@ -2,6 +2,7 @@ require('dotenv').config()
 const express = require('express')
 const bodyParser = require('body-parser')
 const helmet = require('helmet')
+const noCache = require('nocache')
 const fetch = require('node-fetch')
 const multer = require('multer')
 const FormData = require('form-data')
@@ -34,58 +35,73 @@ function transform (jobs, total) {
   }
 }
 
-async function paginate (page) {
-  const { jobs, meta } = await board()
-  const { total } = meta
-  const limit = 50
-  const pages = Math.ceil(total/limit)
-  const index = ((page - 1)*limit)
-  const current = index+limit
-  return new Promise((resolve) => {
-    const transformed = transform(jobs.slice(index, current), total)
-    if (transformed) return resolve(transformed)
-    }
-  )
+function paginate (page) {
+  return new Promise ((resolve, reject) => {
+    board()
+      .then(res => {
+        const { jobs, meta } = res
+        const { total } = meta
+        const limit = 50
+        const pages = Math.ceil(total/limit)
+        const index = ((page - 1)*limit)
+        const current = index+limit
+        const transformed = transform(jobs.slice(index, current), total)
+        if (!transformed) return reject(new Error('No data'))
+        return resolve(transformed)
+      })
+  })
 }
 
 function postApplication (req) {
-  const { body, files } = req
-
-  const form = FormData()
-
-  Object.keys(body).forEach(key => {
-    form.append(key, body[key])
-  })
-
-  Object.keys(files).forEach(key => {
-    form.append(key, files[key][0])
-  })
-
   return new Promise((resolve, reject) => {
+    const form = FormData()
+
+    const { body, files } = req
+    const { id } = body
+
+    if (!body || Object.keys(body).length < 1) return reject (new Error('invalid_request_body'))
+
+    Object.keys(body).forEach(key => {
+      form.append(key, body[key])
+    })
+
+    if (files && Object.keys(files).length > 0) {
+      Object.keys(files).forEach(key => {
+        form.append(key, files[key][0])
+      })
+    }
+
     fetch(`${ghJobsEndpoint}/${id}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${apiKey}`,
-        'Content-Type': 'multipart/form-data',
-        ...form.getHeaders()
+        ...form.getHeaders(),
+        'Authorization': `Basic ${Buffer.from(apiKey).toString("base64")}`
       },
       body: form
-    }).then(res => res.json())
-      .then(json => resolve(json))
-      .catch(err => reject(err))
+    }).then(res => {
+      if (!res || res.status !== 200) return reject(res)
+      return resolve(res)
+    }).catch(err => {
+      return reject(err)
+    })
   })
 }
 
 
 const app = express()
-// app.use(bodyParser.json())
 app.use(helmet())
+app.use(noCache())
 app.disable('etag')
 
 app.get('/', async (req, res) => {
-  const { page = 1 } = req.query
-  const data = await paginate(page)
-  return res.status(200).send(JSON.stringify(data))
+  try {
+    const { page = 1 } = req.query
+    const data = await paginate(page)
+    return res.status(200).send(JSON.stringify(data))
+  } catch (err) {
+    console.log(err)
+    return res.status(400).send({ "ok": false })
+  }
 })
 
 const attachments = multer()
