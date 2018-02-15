@@ -6,11 +6,21 @@ const noCache = require('nocache')
 const fetch = require('node-fetch')
 const multer = require('multer')
 const FormData = require('form-data')
+const RateLimit = require('express-rate-limit')
 
 const apiKey = process.env.GH_JOBS_API_KEY
 const ghJobsEndpoint = process.env.GH_JOBS_BOARD
 const limit = process.env.PAGINATION_LIMIT || 50
 const port = process.env.PORT || 3000
+
+// Middlewares
+const attachments = multer()
+const limiter = new RateLimit({
+  windowMs: 15*60*1000,
+  max: 100,
+  delayMs: 0
+})
+
 
 async function board () {
   const res = await fetch(ghJobsEndpoint)
@@ -92,6 +102,8 @@ const app = express()
 app.use(helmet())
 app.use(noCache())
 app.disable('etag')
+app.enable('trust proxy')
+app.use(limiter)
 
 app.get('/', async (req, res) => {
   try {
@@ -104,7 +116,7 @@ app.get('/', async (req, res) => {
   }
 })
 
-const attachments = multer()
+
 app.post('/submit',
   attachments.fields([{ name: 'resume', maxCount: 1}, { name: 'cover_letter', maxCount: 1 }]),
   async (req, res, next) => {
