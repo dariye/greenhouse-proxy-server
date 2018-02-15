@@ -52,12 +52,13 @@ function postApplication (req) {
   const { body, files } = req
 
   const form = FormData()
+
   Object.keys(body).forEach(key => {
-    if (key === 'cover_letter' || key === 'resume') {
-      form.append(key, files[key][0])
-    } else {
-      form.append(key, body[key])
-    }
+    form.append(key, body[key])
+  })
+
+  Object.keys(files).forEach(key => {
+    form.append(key, files[key][0])
   })
 
   return new Promise((resolve, reject) => {
@@ -65,7 +66,8 @@ function postApplication (req) {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${apiKey}`,
-        'Content-Type': 'multipart/form-data'
+        'Content-Type': 'multipart/form-data',
+        ...form.getHeaders()
       },
       body: form
     }).then(res => res.json())
