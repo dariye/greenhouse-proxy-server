@@ -1,0 +1,8 @@
+{
+  "name": "andela-gh-api",
+  "description": "A simple greenhouse proxy server",
+  "alias": "andela-gh-api",
+  "dotenv": ".env",
+  "engines": "9.4.0",
+  "type": "npm"
+}
