@@ -1,10 +1,12 @@
 require('dotenv').config()
+const fs = require('fs')
 const express = require('express')
 const bodyParser = require('body-parser')
 const helmet = require('helmet')
 const noCache = require('nocache')
 const fetch = require('node-fetch')
 const multer = require('multer')
+const cors = require('cors')
 const FormData = require('form-data')
 const RateLimit = require('express-rate-limit')
 
@@ -77,7 +79,8 @@ function postApplication (req) {
 
     if (files && Object.keys(files).length > 0) {
       Object.keys(files).forEach(key => {
-        form.append(key, files[key][0])
+        const file = files[key][0]
+        form.append(key, file.buffer.toString('base64'),  { filename: file.originalname })
       })
     }
 
@@ -104,8 +107,10 @@ app.use(noCache())
 app.disable('etag')
 app.enable('trust proxy')
 app.use(limiter)
+app.use(cors())
 
 app.get('/', async (req, res) => {
+  res.setHeader('Content-Type', 'application/json')
   try {
     const { page = 1 } = req.query
     const data = await paginate(page)
