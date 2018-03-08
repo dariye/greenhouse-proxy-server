@@ -16,7 +16,8 @@ const limit = process.env.PAGINATION_LIMIT || 50
 const port = process.env.PORT || 3000
 
 // Middlewares
-const attachments = multer()
+const storage = multer.memoryStorage()
+const attachments = multer({ storage: storage })
 const limiter = new RateLimit({
   windowMs: 15*60*1000,
   max: 100,
@@ -130,6 +131,7 @@ app.post('/submit',
   if (!req.body.first_name) return res.status(400).send({ "ok": false, "error": "missing_first_name" })
   if (!req.body.last_name) return res.status(400).send({ "ok": false, "error": "missing_last_name"})
   if (!req.body.email) return res.status(400).send({ "ok": false, "error": "missing_email" })
+
   try {
     const response = await postApplication(req)
     if (!response) throw new Error(`Application for ${req.body.id} failed to submit`)
