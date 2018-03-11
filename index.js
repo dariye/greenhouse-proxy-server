@@ -81,7 +81,7 @@ function postApplication (req) {
     if (files && Object.keys(files).length > 0) {
       Object.keys(files).forEach(key => {
         const file = files[key][0]
-        form.append(key, (new Buffer(file.buffer)).toString('base64'),  { filename: file.originalname })
+        form.append(key, file.buffer.toString("base64"),  file.originalname)
       })
     }
 
@@ -126,20 +126,20 @@ app.get('/', async (req, res) => {
 app.post('/submit',
   attachments.fields([{ name: 'resume', maxCount: 1}, { name: 'cover_letter', maxCount: 1 }]),
   async (req, res, next) => {
-  if (!req.body) return res.status(400).send({ "ok": false, "error": "invalid_request" })
-  if (!req.body.id) return res.status(400).send({ "ok": false, "error": "missing_id" })
-  if (!req.body.first_name) return res.status(400).send({ "ok": false, "error": "missing_first_name" })
-  if (!req.body.last_name) return res.status(400).send({ "ok": false, "error": "missing_last_name"})
-  if (!req.body.email) return res.status(400).send({ "ok": false, "error": "missing_email" })
+    if (!req.body) return res.status(400).send({ "ok": false, "error": "invalid_request" })
+    if (!req.body.id) return res.status(400).send({ "ok": false, "error": "missing_id" })
+    if (!req.body.first_name) return res.status(400).send({ "ok": false, "error": "missing_first_name" })
+    if (!req.body.last_name) return res.status(400).send({ "ok": false, "error": "missing_last_name"})
+    if (!req.body.email) return res.status(400).send({ "ok": false, "error": "missing_email" })
 
-  try {
-    const response = await postApplication(req)
-    if (!response) throw new Error(`Application for ${req.body.id} failed to submit`)
-    next()
-  } catch (err) {
-    console.log(err)
-    return res.status(400).send({ "ok": false, "error": "failed_submission" })
-  }
+    try {
+      const response = await postApplication(req)
+      if (!response) throw new Error(`Application for ${req.body.id} failed to submit`)
+      next()
+    } catch (err) {
+      console.log(err)
+      return res.status(400).send({ "ok": false, "error": "failed_submission" })
+    }
 }, function (req, res, next) {
   return res.status(200).send({ ...req.body, "ok": true })
 })
