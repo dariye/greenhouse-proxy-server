@@ -81,14 +81,16 @@ function postApplication (req) {
     if (files && Object.keys(files).length > 0) {
       Object.keys(files).forEach(key => {
         const file = files[key][0]
-        form.append(key, file.buffer.toString("base64"),  file.originalname)
+        if (Object.keys(file).length !== 0) {
+          form.append(key, file.buffer.toString("base64"),  file.originalname)
+        }
       })
     }
 
     fetch(`${ghJobsEndpoint}/${id}`, {
       method: 'POST',
       headers: {
-        ...form.getHeaders(),
+        'Content-Type: multipart/form-data',
         'Authorization': `Basic ${Buffer.from(apiKey).toString("base64")}`
       },
       body: form
@@ -126,8 +128,9 @@ app.get('/', async (req, res) => {
 app.post('/submit',
   attachments.fields([{ name: 'resume', maxCount: 1}, { name: 'cover_letter', maxCount: 1 }]),
   async (req, res, next) => {
-    if (!req.body) return res.status(400).send({ "ok": false, "error": "invalid_request" })
+    if (!req.body && Object.keys(req.body).length === 0) return res.status(400).send({ "ok": false, "error": "invalid_request" })
     if (!req.body.id) return res.status(400).send({ "ok": false, "error": "missing_id" })
+    if (!req.body.analyticsId) return res.status(400).send({ "ok": false, "error": "missing_analyticsId" })
     if (!req.body.first_name) return res.status(400).send({ "ok": false, "error": "missing_first_name" })
     if (!req.body.last_name) return res.status(400).send({ "ok": false, "error": "missing_last_name"})
     if (!req.body.email) return res.status(400).send({ "ok": false, "error": "missing_email" })
