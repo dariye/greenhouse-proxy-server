@@ -90,7 +90,7 @@ function postApplication (req) {
     fetch(`${ghJobsEndpoint}/${id}`, {
       method: 'POST',
       headers: {
-        'Content-Type: multipart/form-data',
+        'Content-Type': 'multipart/form-data',
         'Authorization': `Basic ${Buffer.from(apiKey).toString("base64")}`
       },
       body: form
