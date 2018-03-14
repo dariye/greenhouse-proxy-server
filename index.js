@@ -16,7 +16,14 @@ const limit = process.env.PAGINATION_LIMIT || 50
 const port = process.env.PORT || 3000
 
 // Middlewares
-const storage = multer.memoryStorage()
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, '/tmp')
+  },
+  filename: function (req, file, cb) {
+    cb(null, `${Date.now()}-${file.originalname}`)
+  }
+})
 const attachments = multer({ storage: storage })
 const limiter = new RateLimit({
   windowMs: 15*60*1000,
@@ -81,7 +88,7 @@ function postApplication (req) {
     if (files && Object.keys(files).length > 0) {
       Object.keys(files).forEach(key => {
         const file = files[key][0]
-        form.append(key, file.buffer.toString("base64"),  file.originalname)
+        form.append(key, fs.createReadStream(file.path))
       })
     }
 
