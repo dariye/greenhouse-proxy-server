@@ -81,16 +81,14 @@ function postApplication (req) {
     if (files && Object.keys(files).length > 0) {
       Object.keys(files).forEach(key => {
         const file = files[key][0]
-        if (Object.keys(file).length !== 0) {
-          form.append(key, file.buffer.toString("base64"),  file.originalname)
-        }
+        form.append(key, file.buffer.toString("base64"),  file.originalname)
       })
     }
 
     fetch(`${ghJobsEndpoint}/${id}`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'multipart/form-data',
+        ...form.getHeaders(),
         'Authorization': `Basic ${Buffer.from(apiKey).toString("base64")}`
       },
       body: form
