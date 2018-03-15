@@ -1,4 +1,5 @@
 require('dotenv').config()
+const http = require('http')
 const fs = require('fs')
 const express = require('express')
 const bodyParser = require('body-parser')
@@ -152,4 +153,10 @@ app.post('/submit',
   return res.status(200).send({ ...req.body, "ok": true })
 })
 
-app.listen(port, () => console.log(`listening on localhost: ${port}`))
+const server = http.createServer(app)
+server.listen(process.env.PORT || 3000, null,
+  () => {
+    console.log("Listening on: localhost:" + process.env.PORT || 3000)
+  })
+
+module.exports = server

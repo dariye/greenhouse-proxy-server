@@ -1,2 +1,2 @@
 #!/bin/bash
-now && now alias && now rm andela-gh-api --safe --yes
+now && now alias && now rm gh-proxy-server --safe --yes

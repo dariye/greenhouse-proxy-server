@@ -1,11 +1,11 @@
 {
-  "name": "fields",
+  "name": "gh-proxy-server",
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "dev": "NODE_ENV=development node index.js",
-    "start": "node index.js"
+    "dev": ". ./env-dev.sh && NODE_ENV=development nodemon src/index.js",
+    "test": "mocha -R spec test/**/*.js"
   },
   "dependencies": {
     "body-parser": "^1.18.2",
@@ -21,6 +21,10 @@
     "request": "^2.83.0"
   },
   "devDependencies": {
-    "nodemon": "^1.14.12"
+    "faker": "^4.1.0",
+    "moch": "^0.0.1",
+    "mocha": "^5.0.4",
+    "nodemon": "^1.17.2",
+    "supertest": "^3.0.0"
   }
 }
