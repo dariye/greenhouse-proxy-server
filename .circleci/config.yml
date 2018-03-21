@@ -1,0 +1,58 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/node:9.4.0
+
+    working_directory: ~/gh-proxy-server
+
+    steps:
+      - checkout
+
+      - restore_cache:
+          keys:
+          - v1-dependencies-{{ checksum "package.json" }}
+          # fallback to using the latest cache if no exact match is found
+          - v1-dependencies-
+
+      - run: yarn install
+
+      - save_cache:
+          paths:
+            - node_modules
+          key: v1-dependencies-{{ checksum "package.json" }}
+
+      - run:
+          name: Run tests
+          command: yarn test
+
+  deploy:
+    machine:
+      enabled: true
+    working_directory: ~/gh-proxy-server
+    steps:
+      - checkout
+      - run:
+          name: Setup now
+          command: yarn global add now
+
+      - run: yarn install
+
+      - run:
+          command: |
+            now -t {NOW_TOKEN} --team=${NOW_TEAM} -e KEYMETRICS_PUBLIC=${KEYMETRICS_PUBLIC} -e KEYMETRICS_SECRET=${KEYMETRICS_SECRET} -e GH_JOBS_API_KEY=${GH_JOBS_API_KEY} -e GH_JOBS_BOARD=${GH_JOBS_BOARD} -e PAGINATION_LIMIT=${PAGINATION_LIMIT} -e PORT=${PORT} -e SENTRY_DSN=${SENTRY_DSN}
+            now -t {NOW_TOKEN} --team=${NOW_TEAM} alias
+
+
+
+workflows:
+  version: 2
+  build:
+    jobs:
+      - build
+      - deploy:
+          requires:
+            - build
+          filters:
+            - branches:
+                only: master

@@ -1,0 +1,7 @@
+{
+  "name": "gh-proxy-server",
+  "description": "A simple greenhouse proxy server",
+  "alias": "gh-proxy-server.andela.com",
+  "engines": "9.4.0",
+  "type": "docker"
+}
