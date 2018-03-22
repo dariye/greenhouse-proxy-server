@@ -13,6 +13,10 @@ const cache = require('memory-cache')
 const cors = require('cors')
 const FormData = require('form-data')
 const RateLimit = require('express-rate-limit')
+const Raven = require('raven')
+
+const sentryDSN = process.SENTRY_DSN
+Raven.config(sentryDSN).install()
 
 const apiKey = process.env.GH_JOBS_API_KEY
 const ghJobsEndpoint = process.env.GH_JOBS_BOARD
@@ -134,6 +138,7 @@ const limiter = new RateLimit({
 
 
 const app = express()
+app.use(Raven.requestHandler())
 app.use(helmet())
 app.use(noCache())
 app.disable('etag')
@@ -165,7 +170,7 @@ app.get('/job/:id', async (req, res) => {
     let listings = cache.get('listings')
     if (!listings) {
       listings = await paginate()
-      cache.put('listing', listings)
+      cache.put('listings', listings)
     }
     const job = await find(req.params.id)
     return res.status(200).json({ job })
