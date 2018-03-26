@@ -15,19 +15,21 @@ const FormData = require('form-data')
 const RateLimit = require('express-rate-limit')
 const Raven = require('raven')
 
-const sentryDSN = process.SENTRY_DSN
-Raven.config(sentryDSN).install()
-
+const isDev = process.env.NODE_ENV !== 'production'
+const sentryDSN = process.env.SENTRY_DSN
 const apiKey = process.env.GH_JOBS_API_KEY
-const ghJobsEndpoint = process.env.GH_JOBS_BOARD
+const gh = process.env.GH_JOBS_BOARD
 const limit = process.env.PAGINATION_LIMIT || 50
 const port = process.env.PORT || 3000
 
+Raven.config(sentryDSN).install()
+if (isDev) Raven.disableConsoleAlerts() // Disable logging
+
 async function board () {
-  const res = await fetch(`${ghJobsEndpoint}`)
+  const res = await fetch(`${gh}`)
   const { jobs } = await res.json()
   return await Promise.all(jobs.map(async ({ id }) => {
-    const job = await fetch(`${ghJobsEndpoint}/${id}?questions=true`)
+    const job = await fetch(`${gh}/${id}?questions=true`)
     return job.json()
   }))
 }
@@ -102,7 +104,7 @@ function postApplication (req) {
       })
     }
 
-    fetch(`${ghJobsEndpoint}/${id}`, {
+    fetch(`${gh}/${id}`, {
       method: 'POST',
       headers: {
         ...form.getHeaders(),
@@ -152,54 +154,65 @@ app.get('/', async (req, res) => {
     let listings = cache.get('listings')
     if (!listings) {
       listings = await paginate()
+      if (!listings) throw new Error('No return value from Greenhouse')
       cache.put('listings', listings)
     }
     return res.status(200).json({ listings })
   } catch (err) {
     console.log(err)
-    return res.status(400).send({ "ok": false })
+    return res.status(500).json({ "ok": false, "error": "no_gh_jobs", message: err.message })
   }
 })
 
-// app.use(bodyParser.urlencoded({ extended: false }))
-// app.use(cookieParser())
-// app.use(csurf({ cookie: true }))
+app.use(bodyParser.urlencoded({ extended: false }))
+/**
+ * Config: multer 
+ * accepts fields with name:
+ * - resume
+ * - cover_letter
+ */
+app.use(attachments.fields([
+  { name: 'resume', maxCount: 1},
+  { name: 'cover_letter', maxCount: 1 }
+]))
+app.use(cookieParser())
+app.use(csurf({ cookie: true }))
 
 app.get('/job/:id', async (req, res) => {
+  const id = req.params.id
   try {
     let listings = cache.get('listings')
     if (!listings) {
       listings = await paginate()
       cache.put('listings', listings)
     }
-    const job = await find(req.params.id)
+    const job = await find(id)
+    if (!job || Object.keys(job).length === 0) throw new Error(`No job found with id: '${id}'`)
     return res.status(200).json({ job })
   } catch (err) {
     console.log(err)
-    return res.status(400).send({ "ok": false })
+    return res.status(404).json({ "ok": false , "error": "job_not_found", message: err.message })
   }
 })
 
-app.post('/job/:id',
-  attachments.fields([{ name: 'resume', maxCount: 1}, { name: 'cover_letter', maxCount: 1 }]),
+app.post('/job/:id', 
   async (req, res, next) => {
     if (!req.body && Object.keys(req.body).length === 0) return res.status(400).send({ "ok": false, "error": "invalid_request" })
     if (!req.body.id) return res.status(400).send({ "ok": false, "error": "missing_id" })
-    if (!req.body.analyticsId) return res.status(400).send({ "ok": false, "error": "missing_analyticsId" })
     if (!req.body.first_name) return res.status(400).send({ "ok": false, "error": "missing_first_name" })
     if (!req.body.last_name) return res.status(400).send({ "ok": false, "error": "missing_last_name"})
     if (!req.body.email) return res.status(400).send({ "ok": false, "error": "missing_email" })
 
     try {
       const response = await postApplication(req)
-      if (!response) throw new Error(`Application for ${req.body.id} failed to submit`)
-      next()
+      if (!response) throw new Error(`Application for job with id '${req.body.id}' failed to submit`)
     } catch (err) {
       console.log(err)
-      return res.status(400).send({ "ok": false, "error": "failed_submission" })
+      return res.status(400).json({ "ok": false, "error": "missing_fields", message: err.message })
     }
-}, function (req, res, next) {
-  return res.status(200).send({ ...req.body, "ok": true })
+  }, (err, req, res, next) => {
+    if (err) return res.status(err.status || 500).json({ "ok": false, "error": "failed_submission", message: err.message })
+    return res.status(200).json({ ...req.body, "ok": true })
 })
 
 const server = http.createServer(app)
