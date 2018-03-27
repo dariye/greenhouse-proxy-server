@@ -4,6 +4,8 @@ const fs = require('fs')
 const express = require('express')
 const bodyParser = require('body-parser')
 const cookieParser = require('cookie-parser')
+const session = require('express-session')
+const cookieSession = require('cookie-session')
 const csurf = require('csurf')
 const helmet = require('helmet')
 const noCache = require('nocache')
@@ -138,8 +140,24 @@ const limiter = new RateLimit({
   delayMs: 0
 })
 
+const parseJson = bodyParser.json()
+const parseForm = bodyParser.urlencoded({ extended: false })
+const parseBody = [parseJson, parseForm]
+/**
+ * Config: multer 
+ * accepts fields with name:
+ * - resume
+ * - cover_letter
+ */
+const parseUploads = attachments.fields([
+  { name: 'resume', maxCount: 1},
+  { name: 'cover_letter', maxCount: 1 }
+])
+
+const csrfProtection = csurf({ cookie: true })
 
 const app = express()
+
 app.use(Raven.requestHandler())
 app.use(helmet())
 app.use(noCache())
@@ -147,7 +165,9 @@ app.disable('etag')
 app.enable('trust proxy', 1)
 app.use(limiter)
 app.use(cors())
-
+app.use(cookieParser())
+app.use(parseUploads)
+app.use(csrfProtection)
 
 app.get('/', async (req, res) => {
   try {
@@ -164,38 +184,7 @@ app.get('/', async (req, res) => {
   }
 })
 
-app.use(bodyParser.urlencoded({ extended: false }))
-/**
- * Config: multer 
- * accepts fields with name:
- * - resume
- * - cover_letter
- */
-app.use(attachments.fields([
-  { name: 'resume', maxCount: 1},
-  { name: 'cover_letter', maxCount: 1 }
-]))
-app.use(cookieParser())
-app.use(csurf({ cookie: true }))
-
-app.get('/job/:id', async (req, res) => {
-  const id = req.params.id
-  try {
-    let listings = cache.get('listings')
-    if (!listings) {
-      listings = await paginate()
-      cache.put('listings', listings)
-    }
-    const job = await find(id)
-    if (!job || Object.keys(job).length === 0) throw new Error(`No job found with id: '${id}'`)
-    return res.status(200).json({ job })
-  } catch (err) {
-    console.log(err)
-    return res.status(404).json({ "ok": false , "error": "job_not_found", message: err.message })
-  }
-})
-
-app.post('/job/:id', 
+app.post('/job/:id',
   async (req, res, next) => {
     if (!req.body && Object.keys(req.body).length === 0) return res.status(400).send({ "ok": false, "error": "invalid_request" })
     if (!req.body.id) return res.status(400).send({ "ok": false, "error": "missing_id" })
@@ -214,6 +203,32 @@ app.post('/job/:id',
     if (err) return res.status(err.status || 500).json({ "ok": false, "error": "failed_submission", message: err.message })
     return res.status(200).json({ ...req.body, "ok": true })
 })
+
+
+app.get('/job/:id',
+  async (req, res) => {
+  const { id } = req.params
+  try {
+    let listings = cache.get('listings')
+    if (!listings) {
+      listings = await paginate()
+      cache.put('listings', listings)
+    }
+    const job = await find(id)
+    if (!job || Object.keys(job).length === 0) throw new Error(`No job found with id: '${id}'`)
+    return res.status(200).json({ job, csrfToken: req.csrfToken() })
+  } catch (err) {
+    console.log(err)
+    return res.status(404).json({ "ok": false , "error": "job_not_found", message: err.message })
+  }
+})
+
+app.use((err, req, res, next) => {
+  if (err.code !== 'EBADCSRFTOKEN') return next(err)
+  console.log(req.body)
+  return next(err)
+})
+
 
 const server = http.createServer(app)
 server.listen(process.env.PORT || 3000, null,
