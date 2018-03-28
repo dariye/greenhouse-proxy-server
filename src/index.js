@@ -165,9 +165,6 @@ app.disable('etag')
 app.enable('trust proxy', 1)
 app.use(limiter)
 app.use(cors())
-app.use(cookieParser())
-app.use(parseUploads)
-app.use(csrfProtection)
 
 app.get('/', async (req, res) => {
   try {
@@ -183,6 +180,11 @@ app.get('/', async (req, res) => {
     return res.status(500).json({ "ok": false, "error": "no_gh_jobs", message: err.message })
   }
 })
+
+app.use(cookieParser())
+app.use(parseBody)
+app.use(parseUploads)
+app.use(csrfProtection)
 
 app.post('/job/:id',
   async (req, res, next) => {
