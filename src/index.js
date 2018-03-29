@@ -1,4 +1,3 @@
-require('dotenv').config()
 const http = require('http')
 const fs = require('fs')
 const express = require('express')
@@ -17,21 +16,15 @@ const FormData = require('form-data')
 const RateLimit = require('express-rate-limit')
 const Raven = require('raven')
 
-const isDev = process.env.NODE_ENV !== 'production'
-const sentryDSN = process.env.SENTRY_DSN
-const apiKey = process.env.GH_JOBS_API_KEY
-const gh = process.env.GH_JOBS_BOARD
-const limit = process.env.PAGINATION_LIMIT || 50
-const port = process.env.PORT || 3000
+const config = require('./config')
 
-Raven.config(sentryDSN).install()
-if (isDev) Raven.disableConsoleAlerts() // Disable logging
+Raven.config(config.sentry.dsn).install()
 
 async function board () {
-  const res = await fetch(`${gh}`)
+  const res = await fetch(config.greenhouse.board)
   const { jobs } = await res.json()
   return await Promise.all(jobs.map(async ({ id }) => {
-    const job = await fetch(`${gh}/${id}?questions=true`)
+    const job = await fetch(`${config.greenhouse.board}/${id}?questions=true`)
     return job.json()
   }))
 }
@@ -106,11 +99,11 @@ function postApplication (req) {
       })
     }
 
-    fetch(`${gh}/${id}`, {
+    fetch(`${config.greenhouse.board}/${id}`, {
       method: 'POST',
       headers: {
         ...form.getHeaders(),
-        'Authorization': `Basic ${Buffer.from(apiKey).toString("base64")}`
+        'Authorization': `Basic ${Buffer.from(config.greenhouse.apiKey).toString("base64")}`
       },
       body: form
     }).then(res => {
@@ -140,21 +133,21 @@ const limiter = new RateLimit({
   delayMs: 0
 })
 
-const parseJson = bodyParser.json()
-const parseForm = bodyParser.urlencoded({ extended: false })
-const parseBody = [parseJson, parseForm]
+// const parseJson = bodyParser.json()
+// const parseForm = bodyParser.urlencoded({ extended: false })
+// const parseBody = [parseJson, parseForm]
 /**
- * Config: multer 
+ * Config: multer
  * accepts fields with name:
  * - resume
  * - cover_letter
  */
-const parseUploads = attachments.fields([
-  { name: 'resume', maxCount: 1},
-  { name: 'cover_letter', maxCount: 1 }
-])
-
-const csrfProtection = csurf({ cookie: true })
+// const parseUploads = attachments.fields([
+//   { name: 'resume', maxCount: 1},
+//   { name: 'cover_letter', maxCount: 1 }
+// ])
+//
+// const csrfProtection = csurf({ cookie: true })
 
 const app = express()
 
@@ -181,32 +174,6 @@ app.get('/', async (req, res) => {
   }
 })
 
-app.use(cookieParser())
-app.use(parseBody)
-app.use(parseUploads)
-app.use(csrfProtection)
-
-app.post('/job/:id',
-  async (req, res, next) => {
-    if (!req.body && Object.keys(req.body).length === 0) return res.status(400).send({ "ok": false, "error": "invalid_request" })
-    if (!req.body.id) return res.status(400).send({ "ok": false, "error": "missing_id" })
-    if (!req.body.first_name) return res.status(400).send({ "ok": false, "error": "missing_first_name" })
-    if (!req.body.last_name) return res.status(400).send({ "ok": false, "error": "missing_last_name"})
-    if (!req.body.email) return res.status(400).send({ "ok": false, "error": "missing_email" })
-
-    try {
-      const response = await postApplication(req)
-      if (!response) throw new Error(`Application for job with id '${req.body.id}' failed to submit`)
-    } catch (err) {
-      console.log(err)
-      return res.status(400).json({ "ok": false, "error": "missing_fields", message: err.message })
-    }
-  }, (err, req, res, next) => {
-    if (err) return res.status(err.status || 500).json({ "ok": false, "error": "failed_submission", message: err.message })
-    return res.status(200).json({ ...req.body, "ok": true })
-})
-
-
 app.get('/job/:id',
   async (req, res) => {
   const { id } = req.params
@@ -218,24 +185,41 @@ app.get('/job/:id',
     }
     const job = await find(id)
     if (!job || Object.keys(job).length === 0) throw new Error(`No job found with id: '${id}'`)
-    return res.status(200).json({ job, csrfToken: req.csrfToken() })
+    return res.status(200).json({ job })
   } catch (err) {
     console.log(err)
     return res.status(404).json({ "ok": false , "error": "job_not_found", message: err.message })
   }
 })
 
-app.use((err, req, res, next) => {
-  if (err.code !== 'EBADCSRFTOKEN') return next(err)
-  console.log(req.body)
-  return next(err)
+app.post('/job/:id',
+  attachments.fields([
+    { name: 'resume', maxCount: 1},
+    { name: 'cover_letter', maxCount: 1 }
+  ]),
+  async (req, res, next) => {
+    if (!req.body && Object.keys(req.body).length === 0) return res.status(400).send({ "ok": false, "error": "invalid_request" })
+    if (!req.body.id) return res.status(400).send({ "ok": false, "error": "missing_id" })
+    if (!req.body.first_name) return res.status(400).send({ "ok": false, "error": "missing_first_name" })
+    if (!req.body.last_name) return res.status(400).send({ "ok": false, "error": "missing_last_name"})
+    if (!req.body.email) return res.status(400).send({ "ok": false, "error": "missing_email" })
+
+    try {
+      const response = await postApplication(req)
+      if (!response) throw new Error(`Application for job with id '${req.body.id}' failed to submit`)
+      next()
+    } catch (err) {
+      console.log(err)
+      return res.status(400).json({ "ok": false, "error": "missing_fields", message: err.message })
+    }
+  }, (req, res, next) => {
+    return res.status(200).json({ ...req.body, "ok": true })
 })
 
-
 const server = http.createServer(app)
-server.listen(process.env.PORT || 3000, null,
+server.listen(config.server.port || 3000, null,
   () => {
-    console.log("Listening on: localhost:" + process.env.PORT || 3000)
+    console.log("Listening on: localhost:" + config.server.port || 3000)
   })
 
 module.exports = server
