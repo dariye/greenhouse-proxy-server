@@ -1,2 +1,2 @@
 #!/bin/bash
-now && now alias && now rm gh-proxy-server --safe --yes
+. ./env.sh && now && now alias && now rm gh-proxy-server --safe --yes
