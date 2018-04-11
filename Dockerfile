@@ -31,7 +31,6 @@ RUN set -ex; \
   fi;
 
 RUN pm2 install pm2-server-monit
-RUN ls -al -R
 
 EXPOSE $PORT
 
