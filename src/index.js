@@ -21,12 +21,20 @@ const config = require('./config')
 Raven.config(config.sentry.dsn).install()
 
 async function board () {
+
+  try {
+
   const res = await fetch(config.greenhouse.board)
   const { jobs } = await res.json()
+
   return await Promise.all(jobs.map(async ({ id }) => {
     const job = await fetch(`${config.greenhouse.board}/${id}?questions=true`)
     return job.json()
   }))
+  } catch(err) {
+    console.log(err)
+    return []
+  }
 }
 
 function transform (jobs) {
