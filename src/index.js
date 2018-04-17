@@ -10,7 +10,6 @@ const helmet = require('helmet')
 const noCache = require('nocache')
 const fetch = require('node-fetch')
 const multer = require('multer')
-const cache = require('memory-cache')
 const cors = require('cors')
 const FormData = require('form-data')
 const RateLimit = require('express-rate-limit')
@@ -77,12 +76,10 @@ function paginate () {
 
 async function find (id) {
   return new Promise (async (resolve, reject) => {
-    if (cache.get(id)) return resolve(cache.get(id))
-    const listings = Array.from(cache.get('listings'))
+    const listings = await paginate()
     job = listings.find((job) => {
       return parseInt(job.id) === parseInt(id)
     })
-    cache.put(id, job)
     return resolve(job)
   })
 }
@@ -169,12 +166,8 @@ app.use(cors())
 
 app.get('/', async (req, res) => {
   try {
-    let listings = cache.get('listings')
-    if (!listings) {
-      listings = await paginate()
-      if (!listings) throw new Error('No return value from Greenhouse')
-      cache.put('listings', listings)
-    }
+    const listings = await paginate()
+    if (!listings) throw new Error('No return value from Greenhouse')
     return res.status(200).json({ listings })
   } catch (err) {
     console.log(err)
@@ -186,11 +179,6 @@ app.get('/job/:id',
   async (req, res) => {
   const { id } = req.params
   try {
-    let listings = cache.get('listings')
-    if (!listings) {
-      listings = await paginate()
-      cache.put('listings', listings)
-    }
     const job = await find(id)
     if (!job || Object.keys(job).length === 0) throw new Error(`No job found with id: '${id}'`)
     return res.status(200).json({ job })

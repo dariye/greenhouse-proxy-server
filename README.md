@@ -1,19 +1,38 @@
-[![CircleCI](https://circleci.com/gh/andela/gh-proxy-server.svg?style=shield&circle-token=50e13c662c12e7b097b57c9587db165de61fa689)](https://circleci.com/gh/andela/gh-proxy-server)
+[![CircleCI](https://circleci.com/gh/pauldariye/greenhouse-proxy-server.svg?style=svg)](https://circleci.com/gh/pauldariye/greenhouse-proxy-server)
+
 # greenhouse-proxy-server
 This is a simple proxy server for greenhouse.io
 
-You can view a live version [here](https://gh-proxy-server.andela.com)
-
 # Installation
 
+```bash
+git clone git@github.com:pauldariye/greenhouse-proxy-server.git
+
+cd greenhouse-proxy-server
+
+cp .env.example .env.dev # provide all env variables. Checkout https://github.com/motdotla/dotenv
+
+yarn # or npm install
+
+yarn run dev # go to localhost:3000
 ```
-git clone git@github.com:andela/gh-proxy-server.git
 
-cd gh-proxy-server
+# Deployment
 
-yarn install // or npm install
+This project uses zeit.co's [now](https://zeit.co/now) platform
+for deployments.
 
-yarn run dev // go to localhost:3000
-```
+See the `now.json` file for the config.
 
+Ensure you're in the project directory.
+
+You can update the `alias` property in the `now.json` file if you're only testing.
+
+```bash
+cp .env.example .env # set production env variables
+
+. ./deploy.sh # deploy and set alias
+
+
+# License MIT
 

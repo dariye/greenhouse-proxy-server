@@ -3,7 +3,6 @@ const joi = require('joi')
 const schema = joi.object({
   SENTRY_DSN: joi.string().required()
 }).unknown()
-  .required()
 
 const { error, value: vars } = joi.validate(process.env, schema)
 

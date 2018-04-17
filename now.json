@@ -1,7 +1,6 @@
 {
-  "name": "gh-proxy-server",
+  "name": "greenhouse-proxy-server",
   "description": "A simple greenhouse proxy server",
-  "alias": "gh-proxy-server.andela.com",
   "dotenv": "true",
   "dotenv": ".env",
   "engines": {

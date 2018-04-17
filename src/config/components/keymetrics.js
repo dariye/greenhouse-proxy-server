@@ -4,7 +4,6 @@ const schema = joi.object({
   KEYMETRICS_PUBLIC: joi.string().required(),
   KEYMETRICS_SECRET: joi.string().required()
 }).unknown()
-  .required()
 
 const { error, value: vars } = joi.validate(process.env, schema)
 
