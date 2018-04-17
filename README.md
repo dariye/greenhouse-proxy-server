@@ -32,7 +32,9 @@ You can update the `alias` property in the `now.json` file if you're only testin
 cp .env.example .env # set production env variables
 
 . ./deploy.sh # deploy and set alias
+```
 
+# License
 
-# License MIT
+MIT
 
